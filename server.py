@@ -15,18 +15,31 @@ DISCONNECT_MESSAGE = "!DISCONNECT"
 LISTENER_LIMIT = 15 #TODO: Set Limit if required
 active_clients = [] # All currently connected users
 
+def send_list_of_connections(conn, addr):
+    user_list = "|".join([f"{user[0]}:{user[1]}" for user in active_clients])
+    send_msgtoclient(user_list, conn, addr) 
+    #print(user_list)
+
 def handle_client(conn, addr):
     # parallel client connection
     print(f"[New Connection] {addr} connected.")
     connected = True
+    
     while connected:
         msg_length = conn.recv(HEADER).decode(FORMAT)
         if msg_length: #If !msg_lenth.equals(null)
             msg_length = int(msg_length)
             
             #TODO: Read username for client
-            username = conn.recv(USERNAME).decode(FORMAT)
-            if username = 
+            username = conn.recv(USERNAME).decode(FORMAT).strip()
+            if username != '':
+                active_clients.append((username, addr)) 
+            
+            #TODO?
+            #Change client settings
+            
+            #TODO?
+            #
             
             msg = conn.recv(msg_length).decode(FORMAT)
             if msg == DISCONNECT_MESSAGE:
@@ -37,6 +50,7 @@ def handle_client(conn, addr):
                 
                 #example server to client msg
                 send_msgtoclient("THIS IS A TEST MESSAGE", conn, addr)
+                send_list_of_connections(conn, addr)
             
     conn.close()
 
