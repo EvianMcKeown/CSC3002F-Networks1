@@ -17,10 +17,10 @@ client.connect(ADDR)
 
 
 def send(msg):
-    """_summary_
+    """Send message to server in correct format
 
     Args:
-        msg (_type_): _description_
+        msg (string): Message to send in String
     """
     # HEADER
     message = msg.encode(FORMAT)
@@ -53,7 +53,7 @@ def send(msg):
 
 
 def recv_msg():
-    """_summary_"""
+    """Receive message from server"""
     msg_length = client.recv(HEADER).decode(FORMAT)
     if msg_length:  # If !msg_lenth.equals(null)
         msg_length = int(msg_length)
