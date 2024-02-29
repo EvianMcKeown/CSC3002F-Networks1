@@ -15,30 +15,39 @@ client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 client.connect(ADDR)
 
 def send(msg):
+    """_summary_
+
+    Args:
+        msg (_type_): _description_
+    """    
     #HEADER
     message = msg.encode(FORMAT)
     msg_length = len(message)
     send_length = str(msg_length).encode(FORMAT)
-    # NOW PAD TO HEADER LENGTH
+    # Now pad to HEADER length
     send_length += b' ' * (HEADER - len(send_length))
     client.send(send_length)
-    #print("HEADER= '" + str(send_length) + "'" )
     
     #USERNAME
     username = "BrafMeToo"
-    #print("USERNAME BEFORE ENCODE= '" + str(username) + "'")
     username = "BrafMeToo".encode(FORMAT)
-    #print("AFTER ENCODE= '" + str(username) + "'")
     username_length = len(username)
-    # NOW PAD TO USERNAME SECTION BYTE LENGTH
+    # Now pad to USERNAME length
     username += b' ' * (USERNAME - (username_length))
     client.send(username)
-    #print("USERNAME= '" + str(username) + "'")
+    
+    #TODO: Change client settings
+    # Encryption=Y/N | Discoverable=Y/N |
+    # Encryption: Asymmetric public-private key used to encrypt shared private RSA key, 
+            # which is then used to encrypt to data between clients. 
+    
     
     client.send(message)
     print("MESSAGE= '" + str(message) + "'")
         
 def recv_msg():
+    """_summary_
+    """    
     msg_length = client.recv(HEADER).decode(FORMAT)
     if msg_length: #If !msg_lenth.equals(null)
         msg_length = int(msg_length)

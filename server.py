@@ -16,11 +16,28 @@ LISTENER_LIMIT = 15 #TODO: Set Limit if required
 active_clients = [] # All currently connected users
 
 def send_list_of_connections(conn, addr):
-    user_list = "|".join([f"{user[0]}:{user[1]}" for user in active_clients])
+    """Send list of connections (that are discoverable) to a specific client
+
+    Args:
+        conn (socket): Socket object of connection to client
+        addr (_RetAddress): Return address part of socket object
+    """
+    
+    user_list = ""
+    for user in active_clients:
+        user_list += "|".join([f"{user[0]}:{user[1]}:{user[2]}"])
+    #user_list = "|".join([f"{user[0]}:{user[1]}" for user in active_clients])
     send_msgtoclient(user_list, conn, addr) 
     #print(user_list)
 
 def handle_client(conn, addr):
+    """Initiate and handle connection to a specific client
+
+    Args:
+        conn (socket): Socket object of connection to client
+        addr (_RetAddress): Return address part of socket object
+    """
+    
     # parallel client connection
     print(f"[New Connection] {addr} connected.")
     connected = True
@@ -32,8 +49,8 @@ def handle_client(conn, addr):
             
             #TODO: Read username for client
             username = conn.recv(USERNAME).decode(FORMAT).strip()
-            if username != '':
-                active_clients.append((username, addr)) 
+            if username:
+                active_clients.append((username, addr, prefs)) 
             
             #TODO?
             #Change client settings
@@ -55,6 +72,14 @@ def handle_client(conn, addr):
     conn.close()
 
 def send_msgtoclient(msg, conn, addr):
+    """Send a message to a client through TCP, with the correct communication protocol
+
+    Args:
+        msg (string): Message in string format - unencrpyted
+        conn (socket): Socket object of connection to client
+        addr (_RetAddress): Return address part of socket object
+    """
+    
     message = msg.encode(FORMAT)
     msg_length = len(message)
     send_length = str(msg_length).encode(FORMAT)
