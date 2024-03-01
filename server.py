@@ -2,10 +2,14 @@ import socket
 import threading
 import re
 
+# import rsa
+# import fernet
+
 # get local ip address and set port to use
 HOST = socket.gethostbyname(socket.gethostname())
 PORT = 6463  # use specific port for TCP
 ADDR = (HOST, PORT)
+SERVER_USERNAME = "server"
 
 HEADER = 512
 USERNAME = 256
@@ -47,13 +51,18 @@ def handle_client(conn, addr):
     # parallel client connection
     print(f"[New Connection] {addr} connected.")
     connected = True
+    encryption = False
+    server_pubkey = None
+    server_privkey = None
+    client_pubkey = None
 
+    loopCount = 0
     while connected:
         msg_length = conn.recv(HEADER).decode(FORMAT)
         if msg_length:  # If !msg_lenth.equals(null)
             msg_length = int(msg_length)
 
-            # TODO: Read username for client
+            # Read username for client
             username = conn.recv(USERNAME).decode(FORMAT).strip()
 
             # Encryption=Y/N | Discoverable=Y/N |
@@ -67,6 +76,21 @@ def handle_client(conn, addr):
 
             # TODO?
             # Change client settings
+            # if re.match("1.", prefs):
+            # Encryption
+            # encryption = True
+            # if (server_pubkey is None) or (server_privkey is None):
+            # Create public and provate asymmetric keys
+            # (server_pubkey, server_privkey) = rsa.newkeys(2048)
+            # Create shared provate key for actual data encryption
+            # shared_key = fernet.generate_key()
+            # cipher = fernet(shared_key)
+            # encrypt data with shared key
+            # encrypted_data = cipher.encrypt("some data")
+            # encrypt shared key with public key
+            # encrypted_shared_key = rsa.encrypt(shared_key, server_pubkey)
+
+            # crypto = rsa.encrypt(messa)
 
             msg = conn.recv(msg_length).decode(FORMAT)
             if msg == DISCONNECT_MESSAGE:
@@ -92,15 +116,19 @@ def send_msgtoclient(msg, conn, addr):
     """
 
     message = msg.encode(FORMAT)
+    # HEADER
     msg_length = len(message)
     send_length = str(msg_length).encode(FORMAT)
     # pad to header length
     send_length += b" " * (HEADER - len(send_length))
     conn.send(send_length)
+    # END HEADER
+    
     conn.send(message)
 
 
 def main():
+    """main method"""
 
     # TCP uses SOCK_STREAM
     server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -119,6 +147,6 @@ def main():
         print(f"[No. of Active Connections] {threading.active_count() - 1}")
 
 
-# call main
+# call main method
 if __name__ == "__main__":
     main()

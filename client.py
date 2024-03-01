@@ -1,4 +1,6 @@
 import socket
+import rsa
+import fernet
 
 HEADER = 512
 FORMAT = "utf-8"
@@ -16,7 +18,7 @@ client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 client.connect(ADDR)
 
 
-def send(msg):
+def send_to_server(msg):
     """Send message to server in correct format
 
     Args:
@@ -42,7 +44,7 @@ def send(msg):
     # Encryption=Y/N | Discoverable=Y/N |
     # Encryption: Asymmetric public-private key used to encrypt shared private RSA key,
     # which is then used to encrypt to data between clients.
-    encryption = False
+    encryption = True
     discoverable = True
     prefs = (str(int(encryption)) + str(int(discoverable))).encode(FORMAT)
     prefs += b" " * (PREFS - len(prefs))
@@ -52,7 +54,7 @@ def send(msg):
     print("MESSAGE= '" + str(message) + "'")
 
 
-def recv_msg():
+def recv_msg_from_server():
     """Receive message from server"""
     msg_length = client.recv(HEADER).decode(FORMAT)
     if msg_length:  # If !msg_lenth.equals(null)
@@ -65,9 +67,25 @@ def recv_msg():
         print(msg)
 
 
-send("Hello World!")
+def recv_msg_peer(conn):
+    # receive UDP message from another peer
+    print("TODO")
+
+
+def request_list_of_clients():
+    clients_list = ""
+    # HEADER
+    msg_length = client.recv(HEADER).decode(FORMAT)
+    if msg_length:
+        msg_length = int(msg_length)
+        msg = client.recv(msg_length).decode(FORMAT)
+
+    return clients_list
+
+
+send_to_server("Hello World!")
 while 1:
-    recv_msg()
+    recv_msg_from_server()
 
 # Need loop to be able to send and receive indefinitely
 # Then it breaks out when a disconnect/close is requested
