@@ -1,5 +1,6 @@
 import socket
 import threading
+import re
 
 # get local ip address and set port to use
 HOST = socket.gethostbyname(socket.gethostname())
@@ -27,7 +28,9 @@ def send_list_of_connections(conn, addr):
 
     user_list = ""
     for user in active_clients:
-        user_list += "|".join([f"{user[0]}:{user[1]}:{user[2]}"])
+        # If second char in prefs string = 1, then client is discoverable
+        if re.match(".1", user[2]):
+            user_list += "|".join([f"{user[0]}:{user[1]}:{user[2]}"])
     # user_list = "|".join([f"{user[0]}:{user[1]}" for user in active_clients])
     send_msgtoclient(user_list, conn, addr)
     # print(user_list)
