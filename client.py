@@ -1,4 +1,5 @@
 import socket
+import re
 import rsa
 import fernet
 
@@ -123,8 +124,15 @@ def main():
     clientList = request_list_of_clients(username, encrypted, discoverable)
     print(clientList)
     print("Select a client based on their ID (shown on the left):")
-    peerID = input(" > ")
-    
+    # TODO error checking
+    peerID = int(input(" > "))
+    peerAddr = re.split("\n", clientList)
+    peerPrefs = re.split(":", peerAddr[peerID - 1])[3]
+    peerUsername = re.split(":", peerAddr[peerID - 1])[1]
+    peerAddr = re.split(":", peerAddr[peerID - 1])[2]
+
+    print("\nAttempting to connect to client " + peerUsername)
+
     while 1:
         recv_msg_from_server()
 
