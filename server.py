@@ -18,6 +18,7 @@ FORMAT = "utf-8"
 
 # MSG that if found closes the connection to the client
 DISCONNECT_MESSAGE = "!DISCONNECT"
+REQ_LIST = "!REQ_LIST" + str(" " * (64 - len("!REQ_LIST")))
 LISTENER_LIMIT = 15  # TODO: Set Limit if required
 active_clients = []  # All currently connected users
 
@@ -31,10 +32,12 @@ def send_list_of_connections(conn, addr):
     """
 
     user_list = ""
+    usercount = 0
     for user in active_clients:
         # If second char in prefs string = 1, then client is discoverable
         if re.match(".1", user[2]):
-            user_list += "|".join([f"{user[0]}:{user[1]}:{user[2]}"])
+            usercount += 1
+            user_list += f"{usercount}:{user[0]}:{user[1]}:{user[2]}|"
     # user_list = "|".join([f"{user[0]}:{user[1]}" for user in active_clients])
     send_msgtoclient(user_list, conn, addr)
     # print(user_list)
@@ -96,12 +99,14 @@ def handle_client(conn, addr):
             if msg == DISCONNECT_MESSAGE:
                 connected = False
                 print(f"[Closing Connection] {addr}")
+            elif msg == REQ_LIST:
+                send_list_of_connections(conn, addr)
             else:
                 print(f"[{addr}] {msg}")
 
                 # example server to client msg
-                send_msgtoclient("THIS IS A TEST MESSAGE", conn, addr)
-                send_list_of_connections(conn, addr)
+                # send_msgtoclient("THIS IS A TEST MESSAGE", conn, addr)
+                # send_list_of_connections(conn, addr)
 
     conn.close()
 
@@ -123,7 +128,7 @@ def send_msgtoclient(msg, conn, addr):
     send_length += b" " * (HEADER - len(send_length))
     conn.send(send_length)
     # END HEADER
-    
+
     conn.send(message)
 
 
