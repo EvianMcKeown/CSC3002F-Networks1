@@ -3,7 +3,7 @@ import re
 import threading
 import rsa
 from cryptography.fernet import Fernet
-import sys
+import sys, os
 
 HEADER = 512
 FORMAT = "utf-8"
@@ -306,7 +306,12 @@ def handle_incoming_connections(serverAssignedIP, serverAssignedPort, encryption
     while connected:
         listener = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         listeningAddr = (serverAssignedIP, serverAssignedPort)
-        listener.bind(listeningAddr)
+        try:
+            listener.bind(listeningAddr)
+        except Exception:
+            print("\n...Client is busy...\nPlease try again later.")
+            os._exit(2)
+            
         header = listener.recv(HEADER).decode(FORMAT)
         # Header received
         if header:
