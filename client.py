@@ -207,8 +207,10 @@ def initiate_chat(
             if (ownPubKey is None) or (ownPrivKey is None):
                 # Create public and private asymmetric keys
                 (ownPubKey, ownPrivKey) = rsa.newkeys(2048)
+                print(ownPubKey, ownPrivKey)
                 # Create shared private key for actual data encryption
                 sharedKey = Fernet.generate_key()
+                print(sharedKey)
                 cipher = Fernet(sharedKey)
                 
                 # send ownPubKey (size 2048 bits)
@@ -227,6 +229,7 @@ def initiate_chat(
             chat_client.sendto(DISCONNECT_MESSAGE.encode(FORMAT), ("127.0.0.1", newSendPort))
             print("Chat ended.")
             connected = False
+            os._exit(0)
             break
         chat_client.sendto(message, ("127.0.0.1", newSendPort))
 
@@ -333,10 +336,10 @@ def handle_incoming_connections(serverAssignedIP, serverAssignedPort, encryption
                     peerPubKey = listener.recv(2048)
             
             msg = listener.recv(msg_length).decode(FORMAT)
-            if msg.lower().strip() == "exit":
+            if msg.lower().strip() == '!DIS'.lower():
                 print("Chat ended.")
                 connected = False
-                break
+                os._exit(0)
             print(f"{username}: {msg}")
         
         # print(header)
