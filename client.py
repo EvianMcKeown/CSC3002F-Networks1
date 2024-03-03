@@ -9,6 +9,7 @@ HEADER = 512
 FORMAT = "utf-8"
 USERNAME = 256
 PREFS = 256
+SHAREDKEY = 2048
 
 # MSG that if found closes the connection to the client
 DISCONNECT_MESSAGE = "!DISCONNECT"
@@ -18,6 +19,12 @@ REQ_LIST = "!REQ_LIST" + str(" " * (64 - len("!REQ_LIST")))
 HOST = socket.gethostbyname(socket.gethostname())
 PORT = 6463  # Specific port for Server-Client communication
 ADDR = (HOST, PORT)
+
+publicKey, privateKey = rsa.newkeys(512)
+publicKey = publicKey.save_pkcs1(format="PEM") # Format able to send
+
+sharedKey = Fernet.generate_key()
+cipher = Fernet(sharedKey)
 
 # STARTUP
 print("Initiating connection to server...")
@@ -165,14 +172,14 @@ def initiate_chat(
         newSendPort = int(referencePort) + 1
 
     # Determine if encrypted
-    if (targetPrefs.strip()[1] == '1') or (ownPrefs.strip()[1] == '1') :
+    if (targetPrefs.strip()[0] == '1') or (ownPrefs.strip()[0] == '1') :
         encryption = True
     else:
         encryption = False
     
     threading.Thread(
         target=handle_incoming_connections,
-        args=("127.0.0.1", newReceivePort, encryption),
+        args=("127.0.0.1", newReceivePort, encryption, referencePort, targetAddrPort),
     ).start()
     print("Chat initiated. Type your message:")
     
@@ -182,11 +189,10 @@ def initiate_chat(
     ownPubKey = None
     ownPrivKey = None
     peerPubKey = None
-    sharedKey = None
     
     while connected:
         message = input(" > ").encode(FORMAT)
-        msg_length = len(message)
+        msg_length = len(cipher.encrypt(message))
         send_length = str(msg_length).encode(FORMAT)
         # NOW PAD TO HEADER LENGTH
         send_length += b" " * (HEADER - len(send_length))
@@ -200,38 +206,72 @@ def initiate_chat(
         chat_client.sendto(username, ("127.0.0.1", newSendPort))
         
         #PREFS: ENCRYPTION
-        if (targetPrefs.strip()[1] == '1') or (ownPrefs.strip()[1] == '1') :
+        if (targetPrefs.strip()[0] == '1') or (ownPrefs.strip()[0] == '1') :
             # 2nd digit is T/F for encryption
             # Thus at least one client requires encryption
             encryption = True
             if (ownPubKey is None) or (ownPrivKey is None):
                 # Create public and private asymmetric keys
-                (ownPubKey, ownPrivKey) = rsa.newkeys(2048)
-                print(ownPubKey, ownPrivKey)
-                # Create shared private key for actual data encryption
-                sharedKey = Fernet.generate_key()
-                print(sharedKey)
-                cipher = Fernet(sharedKey)
+                (ownPubKey, ownPrivKey) = (publicKey, privateKey)
+                #print(ownPubKey, ownPrivKey)
                 
-                # send ownPubKey (size 2048 bits)
-                chat_client.sendto(str(ownPubKey).encode(FORMAT), ("127.0.0.1", newSendPort))
+                # One peer should create shared private key for actual data encryption
+                # Assuming one that sends first creates it
+                #sharedKey = Fernet.generate_key()
+                #print(sharedKey)
+                
+                # create temp socket for key reception
+                encryp_recv = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+                if (str(targetAddrPort).strip() != str(referencePort).replace("'", "").strip()) :
+                    # create temp socket for key reception
+                    # Case 2: we have reference port
+                    encryp_recvPort = int(referencePort) - 2
+                    encryp_sendPort = int(referencePort) + 2
+                    encrypt_recv_addr = ("127.0.0.1", encryp_recvPort)
+                    encryp_recv.bind(encrypt_recv_addr)
+                    
+                else :
+                    # case 1: peer has reference port
+                    encryp_recvPort = int(referencePort) + 2
+                    encryp_sendPort = int(referencePort) - 2
+                    encrypt_recv_addr = ("127.0.0.1", encryp_recvPort)
+                    encryp_recv.bind(encrypt_recv_addr)
+                #    sharedKey = encryp_recv.recv(len())
+                #cipher = Fernet(sharedKey)
+                
                 # TODO: receive peerPubKey, encrypt sharedKey with peerPubKey
-                # TODO: encrypt msg with peerPubKey
-            # encrypt data with shared key
-            encrypted_data = cipher.encrypt("some data".encode(FORMAT))
-            # encrypt shared key with public key
-            # encrypted_sharedKey = rsa.encrypt(str(sharedKey), peerPubKey)
-
-            # crypto = rsa.encrypt(messa)
+                
+                # send ownPubKey (size ? bits) through main socket
+                chat_client.sendto(ownPubKey, ("127.0.0.1", newSendPort))
+                # receive 512 bit key (64 bytes) through side
+                peerPubKey = rsa.PublicKey.load_pkcs1(encryp_recv.recv(512), format='PEM')
             
-        # SEND ACTUAL DATA (if not = "exit")
-        if message.lower().decode(FORMAT) == "exit":
-            chat_client.sendto(DISCONNECT_MESSAGE.encode(FORMAT), ("127.0.0.1", newSendPort))
-            print("Chat ended.")
-            connected = False
-            os._exit(0)
-            break
-        chat_client.sendto(message, ("127.0.0.1", newSendPort))
+            # Use peerPubKey to encrypt sharedKey
+            encrypted_sharedKey = rsa.encrypt(sharedKey, peerPubKey)
+            chat_client.sendto(encrypted_sharedKey, ("127.0.0.1", newSendPort))
+            
+            # TODO: encrypt msg with sharedkey
+            if message.lower().decode(FORMAT) != "exit":
+                # encrypt data with shared key
+                encrypted_data = cipher.encrypt(message)
+                chat_client.sendto(encrypted_data, ("127.0.0.1", newSendPort))
+            else:
+                encrypted_data = cipher.encrypt(DISCONNECT_MESSAGE.encode(FORMAT))
+                chat_client.sendto(encrypted_data, ("127.0.0.1", newSendPort))
+                print("Chat ended.")
+                connected = False
+                os._exit(0)
+                break
+        else:
+            # no encryption
+            if message.lower().decode(FORMAT) != "exit":
+                chat_client.sendto(message, ("127.0.0.1", newSendPort))
+            else:
+                chat_client.sendto(DISCONNECT_MESSAGE.encode(FORMAT), ("127.0.0.1", newSendPort))
+                print("Chat ended.")
+                connected = False
+                os._exit(0)
+                break
 
 
 def main():
@@ -295,7 +335,7 @@ def main():
         recv_msg_from_server()
 
 
-def handle_incoming_connections(serverAssignedIP, serverAssignedPort, encryption):
+def handle_incoming_connections(serverAssignedIP, serverAssignedPort, encryption, referencePort, targetAddrPort):
     """Listen for incoming connections from other clients"""
     
     # Set variables for connection loop (mostly defaults)
@@ -329,18 +369,43 @@ def handle_incoming_connections(serverAssignedIP, serverAssignedPort, encryption
             if encryption :
                 if (ownPubKey is None) or (ownPrivKey is None):
                     # create own pub-priv-key pair
-                    (ownPubKey, ownPrivKey) = rsa.newkeys(2048)
-                    sharedKey = Fernet.generate_key()
-                    cipher = Fernet(sharedKey)
+                    (ownPubKey, ownPrivKey) = (publicKey, privateKey)
+                    #sharedKey = Fernet.generate_key()
+                    #cipher = Fernet(sharedKey)
                     
-                    peerPubKey = listener.recv(2048)
-            
-            msg = listener.recv(msg_length).decode(FORMAT)
-            if msg.lower().strip() == '!DIS'.lower():
-                print("Chat ended.")
-                connected = False
-                os._exit(0)
-            print(f"{username}: {msg}")
+                    if (str(targetAddrPort).strip() == str(referencePort).replace("'", "").strip()) :
+                        encryp_send = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+                        encryp_recvPort = int(referencePort) + 2
+                        encryp_sendPort = int(referencePort) - 2
+                        encryp_send_addr = ("127.0.0.1", encryp_sendPort)
+                    else:
+                        encryp_send = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+                        encryp_recvPort = int(referencePort) - 2
+                        encryp_sendPort = int(referencePort) + 2
+                        encryp_send_addr = ("127.0.0.1", encryp_sendPort)
+                        
+                    peerPubKey = rsa.PublicKey.load_pkcs1(listener.recv(512), format='PEM')
+                    encryp_send.sendto(ownPubKey, ("127.0.0.1", encryp_sendPort))
+                    
+                # Receive encrypted sharedKey
+                sharedKey = rsa.decrypt(listener.recv(64), ownPrivKey)
+                cipher = Fernet(sharedKey)
+                
+                encrypted_msg = listener.recv(msg_length).decode(FORMAT)
+                msg = cipher.decrypt(encrypted_msg).decode(FORMAT)
+                
+                if msg.lower().strip() == DISCONNECT_MESSAGE.lower():
+                    print("Chat ended.")
+                    connected = False
+                    os._exit(0)
+                print(f"{username}: {msg}")
+            else :
+                msg = listener.recv(msg_length).decode(FORMAT)
+                if msg.lower().strip() == '!DIS'.lower():
+                    print("Chat ended.")
+                    connected = False
+                    os._exit(0)
+                print(f"{username}: {msg}")
         
         # print(header)
 
