@@ -121,7 +121,7 @@ def initiate_chat(targetAddr, targetUsername, targetPrefs, ownPrefs):
     #socket for sending
     #source port: targetPort 
     chat_client = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-    chat_client.bind(("127.0.0.1", targetAddrPort - 1))
+    #chat_client.bind(("127.0.0.1", targetAddrPort - 1))
 
     print("targetAddr =" + targetAddr)
     print("targetAddrPort =" + str(targetAddrPort))
@@ -130,7 +130,7 @@ def initiate_chat(targetAddr, targetUsername, targetPrefs, ownPrefs):
     #listen for incoming communication
     threading.Thread(
         target=handle_incoming_connections,
-        args=(targetAddr, 10000),
+        args=("127.0.0.1", 10001),
     ).start()
     print("Chat initiated. Type your message:")
     while True:
@@ -139,7 +139,7 @@ def initiate_chat(targetAddr, targetUsername, targetPrefs, ownPrefs):
             chat_client.send(DISCONNECT_MESSAGE.encode(FORMAT))
             print("Chat ended.")
             break
-        chat_client.sendto(message.encode(FORMAT), (targetAddr, 10001))
+        chat_client.sendto(message.encode(FORMAT), ("127.0.0.1", 10000))
 
 
 def main():
