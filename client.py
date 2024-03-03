@@ -401,7 +401,7 @@ def handle_incoming_connections(serverAssignedIP, serverAssignedPort, encryption
                 print(f"{username}: {msg}")
             else :
                 msg = listener.recv(msg_length).decode(FORMAT)
-                if msg.lower().strip() == '!DIS'.lower():
+                if msg.lower().strip() == DISCONNECT_MESSAGE.lower():
                     print("Chat ended.")
                     connected = False
                     os._exit(0)
