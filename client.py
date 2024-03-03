@@ -1,5 +1,6 @@
 import socket
 import re
+import threading
 import rsa
 import fernet
 
@@ -28,6 +29,14 @@ except:
     exit(1)
 
 print(f"Connected to server on {ADDR} \n")
+
+
+def splitAddrIntoIpPort(addr: str):
+    addr = str(addr).split(",")
+    addr_temp = str(addr[0]).replace("(", "").replace(")", "").replace(" ", "")
+    addrPort = int(str(addr[1]).replace("(", "").replace(")", "").replace(" ", ""))
+    addr = addr_temp
+    return [addr, int(addrPort)]
 
 
 def filter_illegal(input: str) -> str:
@@ -98,6 +107,37 @@ def request_list_of_clients(username, encryption: bool, discoverable: bool):
     return clients_list
 
 
+def initiate_chat(targetAddr, targetUsername, targetPrefs, ownPrefs):
+    # Initiate a chat with another client
+    targetAddr = str(targetAddr).split(",")
+    targetAddr_temp = (
+        str(targetAddr[0]).replace("(", "").replace(")", "").replace(" ", "")
+    )
+    targetAddrPort = int(
+        str(targetAddr[1]).replace("(", "").replace(")", "").replace(" ", "")
+    )
+    targetAddr = targetAddr_temp
+
+    #socket for sending
+    #source port: targetPort 
+    chat_client = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    chat_client.bind(("127.0.0.1", targetAddrPort - 1))
+
+    #listen for incoming communication
+    threading.Thread(
+        target=handle_incoming_connections,
+        args=("127.0.0.1", targetAddrPort + 1),
+    ).start()
+    print("Chat initiated. Type your message:")
+    while True:
+        message = input(" > ")
+        if message.lower() == "exit":
+            chat_client.send(DISCONNECT_MESSAGE.encode(FORMAT))
+            print("Chat ended.")
+            break
+        chat_client.sendto(message.encode(FORMAT), ("127.0.0.1", targetAddrPort + 1))
+
+
 def main():
     print("Enter your username: ")
     username = input(" > ")
@@ -120,6 +160,8 @@ def main():
         encrypted = str(input(" > ".lower()))
     encrypted = True if encrypted == "y" else False
 
+    ownPrefs = str(int(encrypted)) + str(int(discoverable))
+
     print("\nWaiting for clients...")
     clientList = request_list_of_clients(username, encrypted, discoverable)
     print(clientList)
@@ -133,8 +175,20 @@ def main():
 
     print("\nAttempting to connect to client " + peerUsername)
 
+    initiate_chat(peerAddr, peerUsername, peerPrefs, ownPrefs)
+
     while 1:
         recv_msg_from_server()
+
+
+def handle_incoming_connections(serverAssignedIP, serverAssignedPort):
+    """Listen for incoming connections from other clients"""
+    while 1:
+        listener = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        listeningAddr = (serverAssignedIP, serverAssignedPort)
+        listener.bind(listeningAddr)
+        header = listener.recv(HEADER).decode(FORMAT)
+        print(header)
 
 
 main()

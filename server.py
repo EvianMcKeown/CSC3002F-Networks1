@@ -1,6 +1,7 @@
 import socket
 import threading
 import re
+import time
 
 # import rsa
 # import fernet
@@ -33,6 +34,8 @@ def send_list_of_connections(conn, addr):
 
     user_list = ""
     usercount = 0
+    while len(active_clients) < 2:
+        time.sleep(5)
     for user in active_clients:
         # If second char in prefs string = 1, then client is discoverable
         if re.match(".1", user[2]):
