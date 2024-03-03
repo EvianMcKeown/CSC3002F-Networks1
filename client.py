@@ -3,6 +3,7 @@ import re
 import threading
 import rsa
 import fernet
+import sys
 
 HEADER = 512
 FORMAT = "utf-8"
@@ -107,30 +108,69 @@ def request_list_of_clients(username, encryption: bool, discoverable: bool):
     return clients_list
 
 
-def initiate_chat(targetAddr, targetUsername, targetPrefs, ownPrefs):
+def find_lower_id_client(client_list, selfIP: str, selfPort, otherIP, otherPort):
+    client_list = client_list.splitlines()
+    # default to max 32-bit int
+    selfID = sys.maxsize
+    otherID = sys.maxsize
+
+    for user in client_list:
+        user = str(user).split(":")
+        # print(user[2])
+        # print(str(f"('{selfIP}', {selfPort})"))
+        # print(str(user[2]) == str(f"('{selfIP}', {selfPort})"))
+        if str(user[2]) == str(f"('{selfIP}', {selfPort})"):
+            # found self
+            selfID = user[0]
+        if str(user[2]) == str(f"('{otherIP}', {otherPort})"):
+            # found other client
+            otherID = user[0]
+
+    if selfID <= otherID:
+        return selfPort
+    else:
+        return otherPort
+
+
+def initiate_chat(
+    targetAddr, targetUsername, targetPrefs, ownPrefs, referencePort: int
+):
     # Initiate a chat with another client
     targetAddr = str(targetAddr).split(",")
     targetAddr_temp = (
-        str(targetAddr[0]).replace("(", "").replace(")", "").replace(" ", "").replace("'", "")
+        str(targetAddr[0])
+        .replace("(", "")
+        .replace(")", "")
+        .replace(" ", "")
+        .replace("'", "")
     )
     targetAddrPort = int(
         str(targetAddr[1]).replace("(", "").replace(")", "").replace(" ", "")
     )
     targetAddr = targetAddr_temp
 
-    #socket for sending
-    #source port: targetPort 
+    # socket for sending
+    # source port: targetPort
     chat_client = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-    #chat_client.bind(("127.0.0.1", targetAddrPort - 1))
+    # chat_client.bind(("127.0.0.1", targetAddrPort - 1))
 
-    print("targetAddr =" + targetAddr)
-    print("targetAddrPort =" + str(targetAddrPort))
-    print("My local ip =" + str(HOST))
-    
-    #listen for incoming communication
+    # print("targetAddr =" + targetAddr)
+    # print("targetAddrPort =" + str(targetAddrPort))
+    # print("My local ip =" + str(HOST))
+
+    # listen for incoming communication
+    if int(referencePort) == int(targetAddrPort):
+        # Case 1: other peer has reference port
+        newReceivePort = int(referencePort) + 1
+        newSendPort = int(referencePort) - 1
+    else:
+        # Case 2: we have reference port
+        newReceivePort = int(referencePort) - 1
+        newSendPort = int(referencePort) + 1
+
     threading.Thread(
         target=handle_incoming_connections,
-        args=("127.0.0.1", 10001),
+        args=("127.0.0.1", newReceivePort),
     ).start()
     print("Chat initiated. Type your message:")
     while True:
@@ -139,7 +179,7 @@ def initiate_chat(targetAddr, targetUsername, targetPrefs, ownPrefs):
             chat_client.send(DISCONNECT_MESSAGE.encode(FORMAT))
             print("Chat ended.")
             break
-        chat_client.sendto(message.encode(FORMAT), ("127.0.0.1", 10000))
+        chat_client.sendto(message.encode(FORMAT), ("127.0.0.1", newSendPort))
 
 
 def main():
@@ -179,7 +219,25 @@ def main():
 
     print("\nAttempting to connect to client " + peerUsername)
 
-    initiate_chat(peerAddr, peerUsername, peerPrefs, ownPrefs)
+    # find lower ID client, to use port (with offset) for new port
+    referencePort = find_lower_id_client(
+        clientList,
+        HOST,
+        client.getsockname()[1],
+        peerAddr.split(",")[0]
+        .replace("'", "")
+        .replace("(", "")
+        .replace(")", "")
+        .strip(),
+        peerAddr.split(",")[1]
+        .replace("'", "")
+        .replace("(", "")
+        .replace(")", "")
+        .strip(),
+    )
+    # print(referencePort)
+
+    initiate_chat(peerAddr, peerUsername, peerPrefs, ownPrefs, referencePort)
 
     while 1:
         recv_msg_from_server()
