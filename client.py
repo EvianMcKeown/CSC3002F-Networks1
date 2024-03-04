@@ -13,7 +13,7 @@ SHAREDKEY = 2048
 
 # MSG that if found closes the connection to the client
 DISCONNECT_MESSAGE = "!DISCONNECT"
-REQ_LIST = "!REQ_LIST" + str(" " * (64 - len("!REQ_LIST")))
+REQ_LIST = "!REQUEST_LIST" + str(" " * (64 - len("!REQUEST_LIST")))
 
 # Assuming host is on local machine
 HOST = socket.gethostbyname(socket.gethostname())
@@ -260,6 +260,7 @@ def initiate_chat(
                 chat_client.sendto(encrypted_data, ("127.0.0.1", newSendPort))
                 print("Chat ended.")
                 connected = False
+                send_to_server(DISCONNECT_MESSAGE, username.decode(FORMAT), encryption, True)
                 os._exit(0)
                 break
         else:
@@ -270,6 +271,7 @@ def initiate_chat(
                 chat_client.sendto(DISCONNECT_MESSAGE.encode(FORMAT), ("127.0.0.1", newSendPort))
                 print("Chat ended.")
                 connected = False
+                send_to_server(DISCONNECT_MESSAGE, username.decode(FORMAT), encryption, True)
                 os._exit(0)
                 break
 
@@ -397,6 +399,7 @@ def handle_incoming_connections(serverAssignedIP, serverAssignedPort, encryption
                 if msg.lower().strip() == DISCONNECT_MESSAGE.lower():
                     print("Chat ended.")
                     connected = False
+                    send_to_server(DISCONNECT_MESSAGE, username, encryption, True)
                     os._exit(0)
                 print(f"{username}: {msg}")
             else :
@@ -404,6 +407,7 @@ def handle_incoming_connections(serverAssignedIP, serverAssignedPort, encryption
                 if msg.lower().strip() == DISCONNECT_MESSAGE.lower():
                     print("Chat ended.")
                     connected = False
+                    send_to_server(DISCONNECT_MESSAGE, username, encryption, True)
                     os._exit(0)
                 print(f"{username}: {msg}")
         
